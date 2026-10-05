@@ -1,0 +1,52 @@
+/* Stepnote "night desk" palette. Dark only: one theme, no light variant.
+   Blue-graphite surfaces, a cool blue accent, and a magenta click
+   marker that stands out on light web pages in screenshots. */
+:root {
+  color-scheme: dark;
+  --bg: #101419;
+  --surface: #171d24;
+  --raised: #1f2731;
+  --hover: #26303c;
+  --line: #2a3440;
+  --line-strong: #3b4756;
+  --ink: #e8edf2;
+  --muted: #9ba7b3;
+  --faint: #808c99;
+
+  --accent: #7aa2ff;
+  --accent-hover: #93b4ff;
+  --accent-ink: #0b1430;
+  --accent-soft: rgba(122, 162, 255, .14);
+  --accent-text: #a9c2ff;
+
+  /* Primary actions are near-white with dark text; blue stays a highlight. */
+  --primary: #eef1f4;
+  --primary-hover: #ffffff;
+  --primary-ink: #0f1318;
+
+  --rec: #ff7a6b;
+  --rec-soft: rgba(255, 122, 107, .14);
+  --paused: #b9a8f7;
+  --paused-soft: rgba(185, 168, 247, .14);
+
+  --tip-soft: rgba(99, 199, 178, .12);
+  --tip-ink: #b9ecdf;
+  --tip-label: #63c7b2;
+  --alert-soft: rgba(255, 143, 163, .12);
+  --alert-ink: #ffd3db;
+  --alert-label: #ff8fa3;
+  --warn-soft: rgba(232, 214, 140, .08);
+  --warn-ink: #e3d9b4;
+
+  --danger: #ff7b7b;
+  --danger-hover: #ff9a9a;
+  --danger-ink: #2a0b0b;
+  --danger-soft: rgba(255, 123, 123, .12);
+
+  --marker: #ff3d8b;
+  --marker-fill: rgba(255, 61, 139, .45);
+  --marker-soft: rgba(255, 61, 139, .16);
+
+  --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  --backdrop: rgba(6, 9, 13, .74);
+}

@@ -1,0 +1,101 @@
+/* Stepnote modal sheets: confirmations and the site-access explainer.
+   Bottom sheet in the narrow side panel, centered card on wider pages. */
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("fonts/Nunito-Variable.ttf") format("truetype");
+}
+.sheet {
+  /* From theme.css (dark only). */
+  --sheet-surface: var(--surface);
+  --sheet-ink: var(--ink);
+  --sheet-muted: var(--muted);
+  --sheet-line: var(--line);
+  --sheet-control: var(--line-strong);
+  --sheet-accent: var(--accent);
+  --sheet-accent-hover: var(--accent-hover);
+  --sheet-accent-soft: var(--accent-soft);
+  --sheet-danger: var(--danger);
+  --sheet-danger-hover: var(--danger-hover);
+  --sheet-marker: var(--marker);
+  color-scheme: dark;
+  width: calc(100% - 32px);
+  max-width: 400px;
+  max-height: calc(100% - 32px);
+  padding: 0;
+  border: 0;
+  overflow: auto;
+  background: transparent;
+  color: var(--sheet-ink);
+  font: 14px/1.5 "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+.sheet::backdrop { background: var(--backdrop); }
+.sheet-inner {
+  padding: 22px 20px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--sheet-line);
+  background: var(--sheet-surface);
+  box-shadow: var(--shadow);
+}
+.sheet .sheet-inner h2 { margin: 0 0 6px; font-size: 19px; line-height: 1.25; font-weight: 800; letter-spacing: -.3px; }
+.sheet .sheet-body { margin: 0; color: var(--sheet-muted); font-size: 13.5px; }
+.sheet .sheet-points { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 7px; font-size: 13px; }
+.sheet .sheet-points li { position: relative; padding-left: 20px; }
+.sheet .sheet-points li::before { content: ""; position: absolute; left: 3px; top: .5em; width: 8px; height: 5px; border: solid var(--sheet-accent); border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+.sheet .sheet-note { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--raised); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.sheet .sheet-actions { margin-top: 18px; display: grid; gap: 8px; }
+.sheet .sheet-actions button {
+  min-height: 42px; padding: 9px 14px; border: 1px solid var(--sheet-control); border-radius: 11px;
+  background: var(--raised); color: var(--sheet-ink);
+  font: 700 14px/1.3 "Nunito", "Segoe UI", system-ui, sans-serif; cursor: pointer;
+}
+.sheet .sheet-actions button:hover:enabled { background: var(--hover); border-color: #4a5868; }
+.sheet .sheet-actions button:focus-visible { outline: 2px solid var(--sheet-accent); outline-offset: 2px; }
+.sheet .sheet-actions button.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.sheet .sheet-actions button.primary:hover:enabled { background: var(--primary-hover); border-color: var(--primary-hover); }
+.sheet .sheet-actions button.danger { background: var(--sheet-danger); border-color: var(--sheet-danger); color: var(--danger-ink); }
+.sheet .sheet-actions button.danger:hover:enabled { background: var(--sheet-danger-hover); border-color: var(--sheet-danger-hover); }
+.sheet .sheet-actions button.danger:focus-visible { outline-color: var(--sheet-danger); }
+
+/* Follow-across-tabs illustration: the active tab and click marker step right. */
+.sheet-art { display: block; width: 100%; max-width: 240px; height: auto; margin: 0 0 16px; overflow: visible; }
+.art-window { fill: var(--raised); stroke: var(--line-strong); stroke-width: 1.5; }
+.art-tab { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; animation: art-tab 4.8s infinite; }
+.art-tab-1 { fill: var(--sheet-accent-soft); stroke: var(--sheet-accent); }
+.art-tab-2 { animation-delay: 1.6s; }
+.art-tab-3 { animation-delay: 3.2s; }
+.art-line { fill: var(--line-strong); }
+.art-ring { fill: none; stroke: var(--sheet-marker); stroke-width: 2; }
+.art-dot { fill: var(--marker-fill); stroke: #fff; stroke-width: 2.5; }
+.art-marker { animation: art-follow 4.8s infinite; }
+@keyframes art-tab {
+  0%, 30% { fill: var(--sheet-accent-soft); stroke: var(--sheet-accent); }
+  34%, 100% { fill: var(--surface); stroke: var(--line-strong); }
+}
+@keyframes art-follow {
+  0%, 26% { transform: translateX(0); opacity: 1; }
+  33%, 59% { transform: translateX(72px); }
+  66%, 90% { transform: translateX(144px); opacity: 1; }
+  96% { transform: translateX(144px); opacity: 0; }
+  97% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* Animate the dialog box, not its scrolling content, so nothing overflows mid-entrance. */
+.sheet[open] { animation: sheet-in 170ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+
+@media (max-width: 520px) {
+  .sheet { width: 100%; max-width: 100%; max-height: calc(100% - 20px); margin: auto 0 0; }
+  .sheet-inner { padding: 20px 16px 16px; border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, .5); border-width: 1px 0 0; }
+  .sheet[open] { animation-name: sheet-up; animation-duration: 210ms; }
+  @keyframes sheet-up { from { transform: translateY(100%); } }
+}
+@media (max-height: 500px) {
+  .sheet-art { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open], .art-tab, .art-marker { animation: none; }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.test-artifacts/
+playwright-report/
+test-results/
+
+# Local investigations and browser data
+.scratch/
+.env
+.env.*
+*.har

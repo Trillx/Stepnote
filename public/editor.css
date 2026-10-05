@@ -1,0 +1,193 @@
+/* Stepnote guide editor (viewer.html). Nunito comes from dialog.css; colors
+   from theme.css (dark only). Screenshots stay as captured, on dark mats. */
+.editor {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 "Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+.editor * { box-sizing: border-box; }
+.editor [hidden] { display: none !important; }
+.editor button { font: inherit; color: inherit; cursor: pointer; }
+.editor button:focus-visible, .editor textarea:focus-visible, .editor select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.editor button:disabled { cursor: default; }
+
+/* Toolbar */
+.toolbar { position: sticky; top: 0; z-index: 5; background: rgba(23, 29, 36, .92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.toolbar-inner { max-width: 1080px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.toolbar .eyebrow { margin: 0; color: var(--ink); font-size: 21px; font-weight: 800; letter-spacing: -.5px; }
+#status { margin: 0; padding: 4px 10px; border-radius: 999px; background: var(--raised); color: var(--muted); font-size: 13px; font-weight: 700; }
+#app[data-recording-status="recording"] #status { background: var(--rec-soft); color: var(--rec); }
+#app[data-recording-status="paused"] #status { background: var(--paused-soft); color: var(--paused); }
+#save-state { margin: 0; color: var(--faint); font-size: 13px; }
+#save-state[data-state="error"] { color: var(--danger); font-weight: 700; }
+.toolbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.toolbar-actions > button, .menu-wrap > button { min-height: 38px; padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--raised); font-weight: 700; font-size: 14px; }
+.toolbar-actions > button:hover:enabled, .menu-wrap > button:hover:enabled { background: var(--hover); }
+.toolbar-actions .primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.toolbar-actions .primary:hover:enabled { background: var(--primary-hover); border-color: var(--primary-hover); }
+.toolbar-actions .danger { color: var(--danger); border-color: transparent; background: transparent; }
+.toolbar-actions .danger:hover:enabled { background: var(--danger-soft); border-color: rgba(255, 123, 123, .35); }
+.toolbar-actions button:disabled { opacity: .45; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 230px; padding: 6px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); display: grid; gap: 2px; }
+.menu[hidden] { display: none; }
+.menu button { padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; text-align: left; font-weight: 600; font-size: 14px; }
+.menu button:hover, .menu button:focus-visible { background: var(--accent-soft); color: var(--accent-text); }
+
+#error { max-width: 760px; margin: 16px auto 0; padding: 10px 14px; border: 1px solid rgba(255, 123, 123, .35); border-radius: 10px; background: var(--danger-soft); color: #ffb3b3; font-size: 14px; }
+#error:empty { display: none; }
+
+/* Document */
+#guide { max-width: 760px; margin: 0 auto; padding: 40px 24px 140px; }
+#guide[hidden], #empty[hidden] { display: none; }
+#guide textarea { display: block; width: 100%; margin: 0; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; resize: none; overflow: hidden; field-sizing: content; }
+#guide textarea:hover { background: var(--surface); }
+#guide textarea:focus { background: var(--surface); box-shadow: 0 0 0 1px var(--line-strong); outline: none; }
+#guide textarea:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+#guide textarea::placeholder { color: var(--faint); }
+#guide-title { margin-left: -8px !important; width: calc(100% + 16px) !important; font-size: 36px !important; line-height: 1.15 !important; font-weight: 800 !important; letter-spacing: -.9px; }
+#guide-description { margin: 6px 0 0 -8px !important; width: calc(100% + 16px) !important; color: #c3ccd5 !important; font-size: 17px !important; }
+#guide-meta { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+.privacy { display: inline-block; margin: 14px 0 0; padding: 7px 12px; border: 1px solid rgba(232, 214, 140, .22); border-radius: 10px; background: var(--warn-soft); color: var(--warn-ink); font-size: 13px; }
+#entries { margin-top: 24px; }
+
+/* Entries */
+.entry { position: relative; scroll-margin: 90px 0 24px; }
+.entry-head { display: flex; align-items: flex-start; gap: 10px; }
+.entry-fields { flex: 1; min-width: 0; }
+.step-card { padding: 16px 16px 18px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.step-card:focus-within { border-color: var(--line-strong); }
+.step-number { flex: 0 0 auto; min-width: 32px; height: 32px; margin-top: 2px; padding: 0 6px; display: grid; place-items: center; border-radius: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.text-row { display: flex; align-items: flex-start; gap: 4px; }
+#guide .step-text { font-size: 17px; font-weight: 700; line-height: 1.45; }
+#guide .step-text:hover, #guide .step-note:hover { background: var(--raised); }
+#guide .step-note { margin-top: 2px; color: var(--muted); font-size: 15px; }
+.media { margin: 14px 0 0 66px; padding: 10px; border-radius: 14px; background: var(--bg); }
+.shot { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; line-height: 0; }
+.shot img { display: block; max-width: 100%; max-height: 560px; width: auto; height: auto; border-radius: 8px; }
+.marker { position: absolute; width: 26px; height: 26px; border: 3px solid #fff; border-radius: 50%; background: var(--marker-fill); box-shadow: 0 0 0 2.5px var(--marker); transform: translate(-50%, -50%); pointer-events: none; }
+.marker.box { width: 46px; height: 34px; border-radius: 8px; background: var(--marker-soft); }
+.shot-missing { margin: 0; color: var(--muted); font-size: 14px; font-style: italic; }
+.shot-note { margin: 8px 0 0; text-align: center; color: var(--muted); font-size: 13px; }
+
+.block { padding: 4px 8px 4px 8px; }
+.block-header { margin-top: 18px; }
+#guide .block-header .block-text { font-size: 24px; line-height: 1.25; font-weight: 800; letter-spacing: -.4px; }
+.block-tip, .block-alert { padding: 10px 12px 10px 8px; border-radius: 14px; }
+.block-tip { background: var(--tip-soft); color: var(--tip-ink); }
+.block-alert { background: var(--alert-soft); color: var(--alert-ink); }
+.block-tip .block-label { color: var(--tip-label); }
+.block-alert .block-label { color: var(--alert-label); }
+.block-tip .entry-fields, .block-alert .entry-fields { display: flex; align-items: flex-start; gap: 4px; }
+.block-label { flex: 0 0 auto; padding: 5px 0 0 6px; font-weight: 800; font-size: 15px; }
+#guide .block-tip textarea:hover, #guide .block-alert textarea:hover { background: rgba(255, 255, 255, .05); }
+
+/* Tools appear on hover or keyboard focus; always shown on touch screens. */
+.tool { flex: 0 0 auto; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--muted); }
+.tool svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tool:hover:enabled { background: var(--hover); color: var(--ink); }
+.tool:disabled { opacity: .3; }
+.tool.delete-entry:hover:enabled { background: var(--danger-soft); color: var(--danger); }
+.entry-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+.grip { cursor: grab; opacity: 0; color: var(--faint); transition: opacity .12s; }
+.grip svg { fill: currentColor; stroke: none; }
+.entry:hover > .entry-head > .entry-tools, .entry:focus-within > .entry-head > .entry-tools,
+.entry:hover > .entry-head > .grip, .entry:focus-within > .entry-head > .grip { opacity: 1; }
+.reset-text { width: 28px; height: 28px; margin-top: 2px; }
+@media (hover: none) { .entry-tools, .grip { opacity: 1; } }
+
+/* Insert gaps between entries */
+.insert { position: relative; height: 18px; display: flex; justify-content: center; align-items: center; }
+.insert::before { content: ""; position: absolute; left: 66px; right: 16px; top: 50%; border-top: 2px solid var(--accent); opacity: 0; transition: opacity .12s; }
+.insert:hover::before, .insert.open::before, .insert:focus-within::before { opacity: .45; }
+.insert-toggle { position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line-strong); color: var(--accent); opacity: 0; }
+.insert:hover .insert-toggle, .insert:focus-within .insert-toggle, .insert.open .insert-toggle, .insert:last-child .insert-toggle { opacity: 1; }
+.insert:last-child { height: 44px; margin-top: 8px; }
+.insert-menu { position: absolute; z-index: 2; top: calc(50% + 16px); display: flex; gap: 4px; padding: 5px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); }
+.insert-menu[hidden] { display: none; }
+.insert-menu button { padding: 6px 12px; border: 0; border-radius: 8px; background: transparent; font-weight: 700; font-size: 14px; }
+.insert-menu button:hover, .insert-menu button:focus-visible { background: var(--accent-soft); color: var(--accent-text); }
+@media (hover: none) { .insert-toggle { opacity: 1; } }
+
+/* Drag and drop */
+.entry.dragging { opacity: .45; }
+.entry.drop-before { box-shadow: 0 -4px 0 -1px var(--accent); }
+.entry.drop-after { box-shadow: 0 4px 0 -1px var(--accent); }
+
+#empty { max-width: 560px; margin: 80px auto; padding: 0 24px; }
+#empty h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -.5px; }
+#empty p { margin: 0; color: var(--muted); }
+
+/* Click marker setting */
+.marker-setting { display: inline-flex; align-items: center; gap: 8px; margin: 10px 16px 0 0; color: var(--muted); font-size: 13px; }
+.marker-setting select { min-height: 30px; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); color: var(--ink); font: 600 13px/1.3 "Nunito", "Segoe UI", system-ui, sans-serif; }
+
+/* Screenshot editor */
+.image-editor { width: min(1200px, calc(100vw - 32px)); height: calc(100vh - 32px); max-width: none; max-height: none; padding: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font: 15px/1.5 "Nunito", "Segoe UI", system-ui, sans-serif; }
+.image-editor[open] { display: flex; flex-direction: column; }
+.image-editor::backdrop { background: var(--backdrop); }
+.ie-bar, .ie-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px 18px; flex-wrap: wrap; }
+.ie-bar { border-bottom: 1px solid var(--line); }
+.ie-foot { border-top: 1px solid var(--line); }
+.ie-bar h2 { margin: 0 8px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.3px; }
+.ie-tools { display: flex; padding: 3px; gap: 3px; border-radius: 12px; background: var(--bg); }
+.ie-tools button { min-height: 32px; padding: 4px 14px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; }
+.ie-tools button:hover { color: var(--ink); }
+.ie-tools button[aria-pressed="true"] { background: var(--raised); color: var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
+.ie-undo, .ie-cancel, .ie-apply, .ie-zoom { min-height: 36px; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--raised); font-weight: 700; font-size: 14px; }
+.ie-zoom:hover, .ie-undo:hover:enabled, .ie-cancel:hover { background: var(--hover); }
+.ie-undo:disabled, .ie-apply:disabled { opacity: .45; }
+.ie-apply.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.ie-apply.primary:hover:enabled { background: var(--primary-hover); }
+.ie-text { min-height: 36px; width: 180px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--bg); color: var(--ink); font: 600 14px/1.3 "Nunito", "Segoe UI", system-ui, sans-serif; }
+.ie-text::placeholder { color: var(--faint); }
+.ie-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ie-hint { margin: 0 0 0 auto; color: var(--muted); font-size: 14px; }
+.ie-note { flex: 1; margin: 0; color: var(--muted); font-size: 13px; }
+/* Flex, not grid: the canvas's percentage limits need a definite stage height. */
+.ie-stage { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 20px; background: var(--bg); cursor: crosshair; touch-action: none; user-select: none; }
+.ie-stage canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; border-radius: 6px; }
+
+@media (max-width: 640px) {
+  .toolbar-inner { padding: 10px 16px; }
+  .toolbar-actions { margin-left: 0; width: 100%; }
+  #guide { padding: 28px 16px 120px; }
+  #guide-title { font-size: 28px !important; }
+  .media { margin-left: 0; }
+  .insert::before { left: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .entry-tools, .grip, .insert::before { transition: none; } }
+
+/* Guide library page and the toolbar link back to it */
+.toolbar #all-guides { padding: 6px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font-weight: 700; font-size: 14px; }
+.toolbar #all-guides:hover { background: var(--accent-soft); }
+.library-page { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+.library-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.library-page h2 { order: 1; margin: 0; flex: 1; font-size: 32px; font-weight: 800; letter-spacing: -.7px; }
+.library-page .library-search { order: 2; width: min(320px, 100%); }
+.library-search { position: relative; display: block; }
+.library-search svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.library-page input[type="search"] { width: 100%; min-height: 42px; padding: 8px 12px 8px 38px; border: 1px solid var(--line-strong); border-radius: 10px; background: transparent; color: var(--ink); font: 500 15px/1.4 "Nunito", "Segoe UI", system-ui, sans-serif; }
+.library-page input[type="search"]::placeholder { color: var(--faint); }
+.library-page input[type="search"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.guide-list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; }
+.guide-list [hidden] { display: none; }
+.guide-list li + li { border-top: 1px solid var(--line); }
+.library-page .guide-item { width: 100%; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 14px; row-gap: 6px; align-items: start; padding: 18px 10px; text-align: left; border: 0; border-radius: 12px; background: transparent; }
+.library-page .guide-item:hover { background: var(--surface); }
+.library-page .guide-avatar { grid-row: 1 / span 2; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); color: var(--primary-ink); font-size: 15px; font-weight: 800; line-height: 1; }
+.library-page .guide-title { grid-column: 2; font-size: 18px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.library-page .guide-meta { grid-column: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
+.library-page .guide-chip { padding: 1px 8px; border-radius: 6px; background: var(--raised); color: #c9d2db; font-size: 12px; font-weight: 700; }
+.library-page .guide-badge { grid-column: 3; grid-row: 1; align-self: start; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 800; }
+.library-empty { margin: 18px 0 0; color: var(--muted); }
+.library-empty:empty { display: none; }
+/* Site icons: guide rows and the editor's "Captured on" line. */
+.library-page .guide-avatar.has-icon img { width: 20px; height: 20px; object-fit: contain; }
+.site-icon { width: 16px; height: 16px; margin-right: 7px; vertical-align: -3px; border-radius: 3px; }
+
+/* Full-page screenshots scroll inside their card rather than shrinking. */
+.media.tall { max-height: 640px; overflow-y: auto; }
+.media.tall .shot img { max-height: none; }

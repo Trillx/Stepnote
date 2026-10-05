@@ -1,0 +1,17 @@
+/* Legacy popup and shared base. Colors from theme.css (dark only). */
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.55 system-ui, sans-serif; background: var(--bg); color: var(--ink); color-scheme: dark; }
+main { max-width: 1000px; padding: 28px; margin: auto; }
+.popup { width: 380px; }
+h1 { font-size: 25px; line-height: 1.2; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; font-weight: 700; color: var(--accent); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+button { font: inherit; font-weight: 600; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--raised); color: var(--ink); cursor: pointer; }
+button:hover:enabled { background: var(--hover); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+button:disabled { opacity: .55; cursor: default; }
+#start { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+#status { padding: 12px; background: var(--surface); border-radius: 7px; }
+#error { color: var(--danger); overflow-wrap: anywhere; }
+#error:empty { display: none; }
+.warning { background: var(--warn-soft); color: var(--warn-ink); padding: 12px; border-radius: 7px; }
