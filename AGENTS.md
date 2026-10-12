@@ -1,7 +1,14 @@
-# Scribe-Extention
+# Stepnote
 
 A Chrome browser extension for capturing standard operating procedures
 with screenshots and recorded clicks.
+
+## Checks
+
+Run `npm run check` (tests, typecheck, build) before calling work done.
+Put new tests in the file for the module or behavior they cover, not in
+a file named after a review or audit. Do not bump the version by hand;
+releases use `npm version` (see the README's Release section).
 
 ## Agent skills
 
