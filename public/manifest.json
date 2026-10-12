@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stepnote",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Record clicks, ordinary text entry and screenshots in one document. Review and export a local SOP.",
   "icons": {
     "16": "icons/icon-16.png",
