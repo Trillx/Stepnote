@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Library, type Store } from '../src/library.ts';
-import { Recorder, type Recording, type Step } from '../src/recorder.ts';
+import { Recorder, type Port, type Recording, type State, type Step } from '../src/recorder.ts';
 import * as messages from '../src/messages.ts';
 
 function memoryStore() {
@@ -31,6 +31,26 @@ function recorderPort(library: Library) {
     },
     saved: () => saved,
   };
+}
+function port(library?: Library) {
+  let saved: State | null = null;
+  let gate: Promise<void> | undefined;
+  let slow = 0;
+  const p: Port = {
+    read: async () => structuredClone(saved),
+    write: async state => {
+      if (gate) { const wait = gate; gate = undefined; await wait; throw new Error('QUOTA_BYTES quota exceeded'); }
+      if (slow) { const ms = slow; slow = 0; await new Promise(resolve => setTimeout(resolve, ms)); }
+      saved = structuredClone(state);
+    },
+    target: async () => ({ tabId: 7, windowId: 2, url: 'https://example.com/work', title: 'Work' }),
+    inject: async () => 'doc-1', current: async () => ({ active: true, documentId: 'doc-1' }),
+    capture: async () => 'data:image/jpeg;base64,YQ==', now: () => 1000,
+    ...(library ? { archive: (recording, revision) => library.put(recording, revision) } : {}),
+  };
+  // The next write waits for `release`, then fails.
+  const failNextWrite = () => { let release!: () => void; gate = new Promise(resolve => { release = resolve; }); return () => release(); };
+  return { port: p, failNextWrite, slowNextWrite: (ms: number) => { slow = ms; } };
 }
 
 test('guides are stored, listed newest first with search text, read back and removed', async () => {
@@ -148,6 +168,100 @@ test('guide-addressed commands go to the active guide or the library', async () 
   await library.put(guide('p', 'Printable'), 1);
   assert.equal(((await route({ type: 'GET_GUIDE', guideId: 'p' }, print)) as any).recording.title, 'Printable');
   await assert.rejects(() => route({ type: 'DELETE_GUIDE', guideId: 'p' }, print), /read-only/);
+});
+
+test('deleting a guide while a new capture starts deletes that guide, not the new capture', async () => {
+  const id = 'ext'; const viewer = { id, url: `chrome-extension://${id}/viewer.html?guide=x`, frameId: 0 };
+  const library = new Library(memoryStore().store, () => 1);
+  const h = port(library);
+  const recorder = new Recorder(h.port);
+  await recorder.start(); await recorder.click(click, sender); await recorder.stop();
+  const first = (await recorder.status()).recording!.id!;
+  // Busy queue: the router's lookup waits on it, a Start is queued behind it,
+  // and the lookup answers before that Start runs.
+  h.slowNextWrite(20);
+  const busy = recorder.edit({ type: 'EDIT_GUIDE', description: 'busy' });
+  const deleting = messages.route({ type: 'DELETE_GUIDE', guideId: first }, viewer, id, recorder, library);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const starting = recorder.start();
+  await busy;
+  await Promise.all([deleting, starting]);
+  const active = (await recorder.status()).recording!;
+  assert.notEqual(active.id, first, 'the new capture survives');
+  assert.equal(active.status, 'recording');
+  await assert.rejects(() => library.get(first), /not found/, 'the named guide is gone');
+});
+
+test('an edit to a guide that was filed meanwhile goes to the library, not the new capture', async () => {
+  const id = 'ext'; const viewer = { id, url: `chrome-extension://${id}/viewer.html?guide=x`, frameId: 0 };
+  const library = new Library(memoryStore().store, () => 1);
+  const h = port(library);
+  const recorder = new Recorder(h.port);
+  await recorder.start(); await recorder.stop();
+  const first = (await recorder.status()).recording!.id!;
+  h.slowNextWrite(20);
+  const busy = recorder.edit({ type: 'EDIT_GUIDE', description: 'busy' });
+  const editing = messages.route({ type: 'EDIT_GUIDE', guideId: first, title: 'Renamed' }, viewer, id, recorder, library);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const starting = recorder.start();
+  await busy;
+  await Promise.all([editing, starting]);
+  assert.equal((await recorder.status()).recording!.guideTitle, undefined);
+  assert.equal((await library.get(first)).recording.guideTitle, 'Renamed');
+});
+
+test('commands for a guide answer about that guide, and Complete cannot stop a newer capture', async () => {
+  const id = 'ext'; const viewer = { id, url: `chrome-extension://${id}/viewer.html?guide=x`, frameId: 0 };
+  const library = new Library(memoryStore().store, () => 1);
+  const h = port(library);
+  const recorder = new Recorder(h.port);
+  await recorder.start(); await recorder.stop();
+  const a = (await recorder.status()).recording!.id!;
+  // Delete A while B starts right behind it: the reply is about A (gone), not B.
+  h.slowNextWrite(20);
+  const busy = recorder.edit({ type: 'EDIT_GUIDE', description: 'busy' });
+  const deleting = messages.route({ type: 'DELETE_GUIDE', guideId: a }, viewer, id, recorder, library);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const starting = recorder.start();
+  await busy; await starting;
+  assert.equal(((await deleting) as State).recording, null);
+  const b = (await recorder.status()).recording!.id!;
+  assert.notEqual(b, a);
+  // An editor still showing A sends Complete for A: B keeps recording.
+  const stopped = await messages.route({ type: 'STOP', guideId: a }, viewer, id, recorder, library) as State;
+  assert.equal((await recorder.status()).recording!.status, 'recording');
+  assert.notEqual(stopped.recording?.id, b);
+  await messages.route({ type: 'STOP', guideId: b }, viewer, id, recorder, library);
+  assert.equal((await recorder.status()).recording!.status, 'stopped');
+});
+
+test('an edit reply is about the edited guide even if a capture starts right after it', async () => {
+  const id = 'ext'; const viewer = { id, url: `chrome-extension://${id}/viewer.html?guide=x`, frameId: 0 };
+  const library = new Library(memoryStore().store, () => 1);
+  const h = port(library);
+  const recorder = new Recorder(h.port);
+  await recorder.start(); await recorder.stop();
+  const a = (await recorder.status()).recording!.id!;
+  h.slowNextWrite(20);
+  const editing = messages.route({ type: 'EDIT_GUIDE', guideId: a, title: 'Renamed' }, viewer, id, recorder, library);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const starting = recorder.start();
+  const reply = await editing as State; await starting;
+  assert.equal(reply.recording!.id, a);
+  assert.equal(reply.recording!.guideTitle, 'Renamed');
+});
+
+test('a guide deletion that fails to save reports the error and keeps the guide', async () => {
+  const id = 'ext'; const viewer = { id, url: `chrome-extension://${id}/viewer.html?guide=x`, frameId: 0 };
+  const library = new Library(memoryStore().store, () => 1);
+  const h = port(library);
+  const recorder = new Recorder(h.port);
+  await recorder.start(); await recorder.stop();
+  const a = (await recorder.status()).recording!.id!;
+  const release = h.failNextWrite(); release();
+  const reply = await messages.route({ type: 'DELETE_GUIDE', guideId: a }, viewer, id, recorder, library) as State;
+  assert.equal(reply.recording?.id, a, 'the guide is still there');
+  assert.match(reply.error!, /Deletion failed/);
 });
 
 test('pages opened for a guide are trusted by path, not by their query string', async () => {

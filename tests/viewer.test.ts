@@ -199,6 +199,32 @@ test('export menu offers Word, PDF and HTML; delete confirms; complete stops a l
   h.dom.window.close();
 });
 
+test('export waits for a save that is already running', async () => {
+  const dom = new JSDOM('<main id="app"></main>');
+  const root = dom.window.document.querySelector<HTMLElement>('#app')!;
+  let state: State = { revision: 1, recording: { id: 'g', tabId: 1, windowId: 1, documentId: 'd', title: 'Old title', url: 'https://example.com/', status: 'stopped', startedAt: 1, steps: [] } };
+  const downloads: string[] = [];
+  await ui.mountViewer(root, {
+    send: async (message: any) => {
+      if (message.type === 'EDIT_GUIDE') {
+        await new Promise(resolve => setTimeout(resolve, 30));
+        state = { ...structuredClone(state), revision: 2 }; state.recording!.guideTitle = message.title;
+      }
+      return structuredClone(state);
+    },
+    download: html => { downloads.push(html); }, confirmDelete: () => true, saveDelay: 5,
+  });
+  const title = root.querySelector<HTMLTextAreaElement>('#guide-title')!;
+  title.focus(); title.value = 'New title'; title.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  title.blur(); title.dispatchEvent(new dom.window.FocusEvent('focusout', { bubbles: true }));
+  root.querySelector<HTMLButtonElement>('#export-toggle')!.click();
+  root.querySelector<HTMLButtonElement>('[data-export="html"]')!.click();
+  await new Promise(resolve => setTimeout(resolve, 60));
+  assert.equal(downloads.length, 1);
+  assert.match(downloads[0], /<title>New title<\/title>/);
+  dom.window.close();
+});
+
 test('the editor says how many areas were blurred automatically', async () => {
   const h = harness(guide({ steps: [step('a', 'Click Save', { blurred: 2 }), step('b', 'Click Done', { blurred: 1 }), step('c', 'Click Next')] })); await h.mount();
   assert.equal(h.$('[data-id="a"] .shot-note').textContent, '2 areas blurred automatically.');

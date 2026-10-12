@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { fingerprint, findTarget, validFingerprint } from '../src/fingerprint.ts';
@@ -6,6 +6,10 @@ import { describeClick } from '../src/page-click.ts';
 import { Recorder, type Step } from '../src/recorder.ts';
 
 const page = (html: string) => new JSDOM(`<body>${html}</body>`, { url: 'https://app.example.com/orders?id=7' });
+// Rendered pages, closed after each test.
+const open: JSDOM[] = [];
+afterEach(() => { for (const dom of open.splice(0)) dom.window.close(); });
+const visualPage = (html: string, url = 'https://app.example.com/orders') => { const dom = new JSDOM(`<body>${html}</body>`, { url, pretendToBeVisual: true }); open.push(dom); return dom; };
 
 test('a fingerprint names the control without collecting values', () => {
   const dom = page(`<form><label for="q">Customer</label><input id="q" name="customer" value="Jane Doe" placeholder="Search customers"></form>
@@ -80,4 +84,40 @@ test('clicks and text entries carry their fingerprint into the saved step', asyn
   assert.equal(steps[0].target?.id, 'save');
   assert.equal(steps[1].target, undefined, 'an invalid fingerprint is dropped, the click is kept');
   dom.window.close();
+});
+
+test('fingerprints never keep text typed into editable descendants', () => {
+  const dom = visualPage('<label id="customer">Customer <span contenteditable="true">Jane Private</span><textarea>Secret note</textarea></label>');
+  const label = dom.window.document.getElementById('customer')!;
+  const win = dom.window as unknown as Window;
+  const fp = fingerprint(label, win);
+  assert.doesNotMatch(JSON.stringify(fp), /Jane Private|Secret note/);
+  assert.equal(fp.name, 'Customer');
+  const click = describeClick(label, new dom.window.MouseEvent('click'), win);
+  assert.doesNotMatch(JSON.stringify(click), /Jane Private|Secret note/);
+});
+
+test('a control named by its image is found again', () => {
+  const dom = visualPage('<nav><a href="/">Home</a></nav><button><img alt="Save" src="x.png"></button>');
+  const button = dom.window.document.querySelector('button')!;
+  const fp = fingerprint(button, dom.window as unknown as Window);
+  assert.equal(fp.name, 'Save');
+  assert.equal(findTarget(dom.window.document, fp), button);
+});
+
+test('recognized secret fields keep only tag, type, selector and position', () => {
+  const dom = visualPage('<div contenteditable="true" id="auth-token" aria-label="Token" title="Paste token" data-testid="token-box"></div><input type="password" id="pw" name="password" data-testid="pw" placeholder="Password">', 'https://a.example.com/');
+  const win = dom.window as unknown as Window;
+  for (const el of [dom.window.document.getElementById('auth-token')!, dom.window.document.getElementById('pw')!]) {
+    const fp = fingerprint(el, win);
+    assert.deepEqual(Object.keys(fp).sort(), el.id === 'pw' ? ['attrs', 'rect', 'selector', 'tag'] : ['rect', 'selector', 'tag']);
+    if (el.id === 'pw') assert.deepEqual(fp.attrs, { type: 'password' });
+  }
+});
+
+test('a minimal fingerprint does not match an element of another kind', () => {
+  const before = visualPage('<form><input type="password" id="pw"></form>', 'https://a.example.com/app');
+  const fp = fingerprint(before.window.document.getElementById('pw')!, before.window as unknown as Window);
+  const after = visualPage('<form><input type="text" id="pw"></form>', 'https://a.example.com/app');
+  assert.equal(findTarget(after.window.document, fp), null);
 });
