@@ -1,4 +1,6 @@
-# Stepnote verification
+# Stepnote verification log (archived)
+
+> Historical record of manual and browser verification runs during early development. It is not kept up to date. Paths under `.scratch/` and `.test-artifacts/` point to local, uncommitted evidence. For how to test the extension today, see [testing.md](../testing.md).
 
 ## Current live-entry, following, and continuity checks
 

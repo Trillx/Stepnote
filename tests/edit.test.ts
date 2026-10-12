@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Recorder, isStep, type Block, type Step } from '../src/recorder.ts';
+import type { Library } from '../src/library.ts';
+import { Recorder, isStep, type Block, type Port, type State, type Step } from '../src/recorder.ts';
 import * as messages from '../src/messages.ts';
 
 const click = { label: 'Click Save', x: 120, y: 50, width: 800, height: 600, url: 'https://example.com/work', title: 'Work' };
@@ -26,6 +27,26 @@ async function recorderWithSteps(count = 2) {
   return { h, recorder, ids };
 }
 const entries = async (recorder: Recorder) => (await recorder.status()).recording!.steps;
+function port(library?: Library) {
+  let saved: State | null = null;
+  let gate: Promise<void> | undefined;
+  let slow = 0;
+  const p: Port = {
+    read: async () => structuredClone(saved),
+    write: async state => {
+      if (gate) { const wait = gate; gate = undefined; await wait; throw new Error('QUOTA_BYTES quota exceeded'); }
+      if (slow) { const ms = slow; slow = 0; await new Promise(resolve => setTimeout(resolve, ms)); }
+      saved = structuredClone(state);
+    },
+    target: async () => ({ tabId: 7, windowId: 2, url: 'https://example.com/work', title: 'Work' }),
+    inject: async () => 'doc-1', current: async () => ({ active: true, documentId: 'doc-1' }),
+    capture: async () => 'data:image/jpeg;base64,YQ==', now: () => 1000,
+    ...(library ? { archive: (recording, revision) => library.put(recording, revision) } : {}),
+  };
+  // The next write waits for `release`, then fails.
+  const failNextWrite = () => { let release!: () => void; gate = new Promise(resolve => { release = resolve; }); return () => release(); };
+  return { port: p, failNextWrite, slowNextWrite: (ms: number) => { slow = ms; } };
+}
 
 test('guide title and description are edited, trimmed and reset to the captured title when empty', async () => {
   const { h, recorder } = await recorderWithSteps(0);
@@ -118,6 +139,25 @@ test('a failed save reverts the edit, reports it, and leaves a live capture reco
   h.failWrites(false);
   await recorder.click(click, sender);
   assert.equal((await entries(recorder)).length, 2, 'capture continues after a failed edit');
+});
+
+test('a failed reorder keeps clicks captured while it was saving', async () => {
+  const h = port();
+  const recorder = new Recorder(h.port);
+  await recorder.start();
+  await recorder.click({ ...click, label: 'Click One' }, sender);
+  await recorder.click({ ...click, label: 'Click Two' }, sender);
+  const [one, two] = (await recorder.status()).recording!.steps.map(s => s.id!);
+  const release = h.failNextWrite();
+  const moving = recorder.edit({ type: 'MOVE_STEP', stepId: two, index: 0 });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const arriving = recorder.click({ ...click, label: 'Click Three' }, sender); // admitted while the move is saving
+  release();
+  await assert.rejects(moving, /Edit not saved/);
+  await arriving;
+  const steps = (await recorder.status()).recording!.steps as Step[];
+  assert.deepEqual(steps.map(s => s.label), ['Click One', 'Click Two', 'Click Three']);
+  assert.deepEqual(steps.slice(0, 2).map(s => s.id), [one, two]);
 });
 
 test('live text-entry updates keep an edited instruction and note', async () => {

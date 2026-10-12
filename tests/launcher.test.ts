@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { mountLauncher, launcherRegistration } from '../src/launcher-ui.ts';
+import { mountLauncher, launcherActions, launcherRegistration } from '../src/launcher-ui.ts';
 import { defaultSettings } from '../src/settings.ts';
 import * as messages from '../src/messages.ts';
 
@@ -40,6 +40,13 @@ test('the button is registered for web pages except excluded sites, only when on
   assert.deepEqual(registration.matches, ['http://*/*', 'https://*/*']);
   assert.deepEqual(registration.excludeMatches, ['*://mail.google.com/*']);
   assert.deepEqual(registration.js, ['launcher.js']);
+});
+
+test('changing the button setting reaches pages that are already open', () => {
+  const tabs = [{ id: 1, url: 'https://mail.google.com/inbox' }, { id: 2, url: 'https://app.example.com/' }, { id: 3, url: 'chrome://settings/' }, { id: 4 }];
+  assert.deepEqual(launcherActions(tabs, { ...defaultSettings, launcher: false }, true), [{ tabId: 1, action: 'remove' }, { tabId: 2, action: 'remove' }]);
+  assert.deepEqual(launcherActions(tabs, { ...defaultSettings, excludedDomains: ['mail.google.com'] }, true), [{ tabId: 1, action: 'remove' }, { tabId: 2, action: 'inject' }]);
+  assert.deepEqual(launcherActions(tabs, defaultSettings, false), [{ tabId: 1, action: 'remove' }, { tabId: 2, action: 'remove' }], 'no site access: remove');
 });
 
 test('launcher messages come only from a tab and act on that tab and its site', async () => {

@@ -1,11 +1,16 @@
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
 import { tidySteps } from '../src/tidy.ts';
+import { describeClick } from '../src/page-click.ts';
 import { Recorder, type Entry, type Step } from '../src/recorder.ts';
 
 const field = { tag: 'input', role: 'textbox', name: 'Customer', id: 'customer', selector: '#customer', rect: { x: 0, y: 0, width: 1, height: 1 } };
 const save = { tag: 'button', role: 'button', name: 'Save', selector: 'body > button', rect: { x: 0, y: 0, width: 1, height: 1 } };
 const s = (id: string, label: string, at: number, extra: Partial<Step> = {}): Step => ({ id, label, at, title: 'T', url: 'https://example.com/', x: 1, y: 1, width: 10, height: 10, ...extra });
+const open: JSDOM[] = [];
+afterEach(() => { for (const dom of open.splice(0)) dom.window.close(); });
+const page = (html: string, url: string) => { const dom = new JSDOM(`<body>${html}</body>`, { url, pretendToBeVisual: true }); open.push(dom); return dom; };
 
 test('a field click followed by typing in that field becomes one step', () => {
   const { steps, removed } = tidySteps([
@@ -40,6 +45,14 @@ test('edited steps, other fields and blocks are left alone; an edited click stil
   assert.equal((steps[5] as Step).text, 'Press **Save**');
 });
 
+test('tidy-up only merges or de-duplicates actions on the same page', () => {
+  const next = { tag: 'button', role: 'button', name: 'Next', id: 'next', selector: '#next', rect: { x: 0, y: 0, width: 1, height: 1 } };
+  const s = (id: string, url: string, at: number): Step => ({ id, label: 'Click Next', url, at, title: 'Wizard', x: 1, y: 1, width: 10, height: 10, target: next });
+  const { steps, removed } = tidySteps([s('a', 'https://app.example.com/one', 1000), s('b', 'https://app.example.com/two', 1500)]);
+  assert.equal(removed, 0);
+  assert.deepEqual(steps.map(e => e.id), ['a', 'b']);
+});
+
 test('completing a capture tidies it when the setting is on, and says so', async () => {
   for (const tidy of [true, false]) {
     let saved: any = null;
@@ -58,4 +71,23 @@ test('completing a capture tidies it when the setting is on, and says so', async
     assert.equal(r.steps.length, tidy ? 1 : 2);
     assert.equal(r.tidied, tidy ? 1 : undefined);
   }
+});
+
+test('tidy-up keeps consecutive clicks on different hash routes', async () => {
+  let saved: any = null;
+  const recorder = new Recorder({
+    read: async () => structuredClone(saved), write: async v => { saved = structuredClone(v); },
+    target: async () => ({ tabId: 1, windowId: 1, url: 'https://a.example.com/app', title: 'App' }),
+    inject: async () => 'doc', current: async () => ({ active: true, documentId: 'doc' }),
+    capture: async () => 'data:image/jpeg;base64,YQ==', now: () => 1000, tidy: () => true,
+  });
+  await recorder.start();
+  const next = (url: string) => { const dom = page('<button id="next">Next</button>', url); return describeClick(dom.window.document.getElementById('next')!, new dom.window.MouseEvent('click'), dom.window as unknown as Window); };
+  await recorder.click(next('https://a.example.com/app#/one'), { tabId: 1, frameId: 0, documentId: 'doc' });
+  await recorder.click(next('https://a.example.com/app#/two'), { tabId: 1, frameId: 0, documentId: 'doc' });
+  await recorder.stop();
+  const r = (await recorder.status()).recording!;
+  assert.equal(r.steps.length, 2);
+  assert.equal(r.tidied, undefined);
+  assert.equal((r.steps[0] as Step).route?.length, 8);
 });

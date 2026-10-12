@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { findSensitive, sensitiveMatches } from '../src/sensitive.ts';
+import { findSensitive, mappableTransform, sensitiveMatches } from '../src/sensitive.ts';
 import { imageBoxes, matchesViewport } from '../src/redact.ts';
 import { Recorder } from '../src/recorder.ts';
 
@@ -54,6 +54,73 @@ test('matching visible text is boxed, scripts and off-screen text are skipped', 
     <style>.a{content:"y@example.com"}</style>`);
   assert.deepEqual(regions().boxes.map(b => b.y), [50]);
   dom.window.close();
+});
+
+// jsdom has no layout: an element's box comes from its data-box attribute (x,y,w,h).
+function layout(dom: JSDOM) {
+  return (target: Element | Range) => {
+    const node = target instanceof dom.window.Range ? target.startContainer.parentElement! : target as Element;
+    const host = (node.closest('[data-box]') ?? node) as Element;
+    const [x, y, width, height] = (host.getAttribute('data-box') ?? '0,0,10,10').split(',').map(Number);
+    return [{ x, y, width, height } as DOMRect];
+  };
+}
+test('automatic blur looks inside shadow roots and same-origin frames, and blurs frames it cannot read', () => {
+  const dom = new JSDOM('<body><div id="host" data-box="10,10,300,20"></div><iframe id="same" data-box="0,100,400,200"></iframe><iframe id="other" data-box="500,100,300,200"></iframe><iframe id="hidden" data-box="0,0,0,0"></iframe></body>', { pretendToBeVisual: true });
+  const win = dom.window as unknown as Window;
+  Object.defineProperty(win, 'innerWidth', { value: 1000 }); Object.defineProperty(win, 'innerHeight', { value: 600 });
+  const shadow = dom.window.document.getElementById('host')!.attachShadow({ mode: 'closed' });
+  shadow.innerHTML = '<p data-box="10,10,300,20">Owner: jane@example.com</p>';
+  const inner = new JSDOM('<body><p data-box="20,30,200,20">Card 4111 1111 1111 1111</p><input type="password" data-box="20,150,100,20"></body>');
+  const regions = findSensitive(win, {
+    measure: (target: Element | Range) => {
+      const owner = target instanceof inner.window.Range ? target.startContainer.ownerDocument : (target as Element).ownerDocument;
+      return owner === inner.window.document ? layout(inner)(target) : layout(dom)(target);
+    },
+    shadowRoot: element => element.id === 'host' ? shadow : null,
+    frameDocument: frame => frame.id === 'same' ? inner.window.document : null,
+  });
+  const boxes = regions.boxes.map(b => [b.x, b.y, b.width, b.height]);
+  assert.deepEqual(boxes, [
+    [10, 10, 300, 20], // shadow text
+    [20, 250, 100, 20], // frame password field, offset by the frame
+    [20, 130, 200, 20], // frame text
+    [500, 100, 300, 200], // unreadable frame, blurred whole
+  ]);
+  dom.window.close(); inner.window.close();
+});
+
+test('frame content is mapped through the frame scale; frames that cannot be mapped are blurred whole', () => {
+  const dom = new JSDOM('<body><iframe id="scaled" data-box="0,100,400,200"></iframe><iframe id="rotated" data-box="500,100,300,200"></iframe></body>', { pretendToBeVisual: true });
+  const win = dom.window as unknown as Window;
+  Object.defineProperty(win, 'innerWidth', { value: 1000 }); Object.defineProperty(win, 'innerHeight', { value: 600 });
+  const inner = new JSDOM('<body><input type="email" value="me@example.com" data-box="10,20,80,10"></body>');
+  const regions = findSensitive(win, {
+    measure: (target: Element | Range) => {
+      const owner = target instanceof inner.window.Range ? target.startContainer.ownerDocument : (target as Element).ownerDocument;
+      return owner === inner.window.document ? layout(inner)(target) : layout(dom)(target);
+    },
+    frameDocument: () => inner.window.document,
+    // The scaled frame is drawn at twice its layout size; the rotated one cannot be mapped.
+    frameScale: frame => frame.id === 'scaled' ? { x: 2, y: 2 } : null,
+  });
+  assert.deepEqual(regions.boxes.map(b => [b.x, b.y, b.width, b.height]), [[20, 140, 160, 20], [500, 100, 300, 200]]);
+  dom.window.close(); inner.window.close();
+});
+
+test('only positive axis-aligned scale and movement can be mapped; any other transform blurs the frame whole', () => {
+  const none = { transform: 'none', rotate: 'none', scale: 'none', offsetPath: 'none' };
+  assert.equal(mappableTransform(none), true);
+  assert.equal(mappableTransform({ ...none, transform: 'matrix(2, 0, 0, 2, 10, 20)' }), true);
+  assert.equal(mappableTransform({ ...none, scale: '2 1.5' }), true);
+  assert.equal(mappableTransform({ ...none, transform: 'matrix(-1, 0, 0, 1, 0, 0)' }), false, 'mirrored');
+  assert.equal(mappableTransform({ ...none, transform: 'matrix(0, 1, -1, 0, 0, 0)' }), false, 'rotated');
+  assert.equal(mappableTransform({ ...none, transform: 'matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 5, 1)' }), false, '3D');
+  assert.equal(mappableTransform({ ...none, rotate: '90deg' }), false, 'rotate property');
+  assert.equal(mappableTransform({ ...none, rotate: '0deg' }), true);
+  assert.equal(mappableTransform({ ...none, scale: '-1 1' }), false, 'mirrored by the scale property');
+  assert.equal(mappableTransform({ ...none, offsetPath: 'path("M0,0 L100,100")' }), false, 'motion path');
+  assert.equal(mappableTransform({ ...none, transform: 'garbage(' }), false, 'unparseable');
 });
 
 test('viewport boxes scale to screenshot pixels with padding and clipping', () => {

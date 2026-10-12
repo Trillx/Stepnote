@@ -1,104 +1,74 @@
 # Stepnote
 
-A local-only Manifest V3 Chrome extension with a persistent native side panel. The panel uses a locally bundled Nunito font. Its home shows Start Capture and a short privacy warning; fuller details stay available under the collapsed **Privacy & limits** disclosure. Capture clicks and ordinary text-entry steps in one web document, review live screenshots, export a self-contained HTML procedure, and delete the local recording.
+A local-only Chrome extension for writing step-by-step guides. Click and type through a procedure in any web page; Stepnote records each step with a screenshot in a native side panel. Edit the result, then export it as Word, PDF or HTML, or have Stepnote walk someone through it on the live site with **Guide me**.
 
-## Build and load
+Everything stays on your device. There is no backend, account, analytics, or remote code.
 
-Use Node.js 22.18 or newer and npm. No backend or API keys are needed.
+- [Using Stepnote](docs/usage.md): capturing, editing, exporting, your guide library, Guide me, settings.
+- [Privacy, scope and permissions](docs/privacy.md): what is recorded, what is excluded or blurred, and why each permission is needed.
+- [Testing](docs/testing.md): unit tests and the real-browser smoke test.
+
+## Install
+
+Stepnote needs Chrome 120 or newer.
+
+1. Download `stepnote-<version>.zip` from the [latest release](https://github.com/Trillx/Stepnote/releases/latest) and unzip it.
+2. Open `chrome://extensions` and enable **Developer mode**.
+3. Choose **Load unpacked** and select the unzipped folder.
+4. Pin **Stepnote** to the toolbar, open a web page, and click its button (or press `Ctrl+Shift+Y`).
+
+## Develop
+
+Use Node.js 22.18 or newer and npm.
 
 ```sh
 npm ci
-npm run check
+npm run check   # tests, TypeScript, and a dev build in dist/
 ```
 
-`check` runs the tests, TypeScript checks, and the esbuild bundle. Load the generated `dist` directory directly.
+Load `dist/` with **Load unpacked** as above. Do not load the repository root. After source changes, run `npm run build`, reload the extension in `chrome://extensions`, and refresh the page you intend to record.
 
-1. Open `chrome://extensions` in Chrome 120 or newer.
-2. Enable **Developer mode**.
-3. Choose **Load unpacked** and select this repository's `dist` directory.
-4. Pin **Stepnote** to the toolbar.
-5. Open an ordinary HTTP or HTTPS page, then click the extension's toolbar button. You can also use `Ctrl+Shift+Y` if the shortcut is available.
-6. The native side panel opens alongside the page. Choose **Start Capture**. Until site access is granted, the panel first explains why it is needed. **Allow and start** then opens Chrome's own prompt ("Read and change all your data on all websites"); allow it so capture can follow you into new tabs, page loads, and other windows. **Only this tab** starts without asking. Then click and type through your procedure. New cards follow by default. Hover over the list or scroll to review without being pulled back down. Return to the bottom and move the pointer out of the list to resume following. In-place text updates, status updates, and deletion do not jump the list or steal page focus.
-7. Use **Pause** to suppress new captures and **Resume** to continue in the web page currently in focus. Clicking a screenshot opens a larger preview and pauses recording. Closing the preview never resumes it automatically.
-8. Delete individual steps with their card's **Delete** control. Remaining cards renumber in order. Choose **Complete Capture** to stop and review the saved SOP.
-9. Choose **Export HTML** in the panel to download a portable procedure with images embedded, or **Edit guide** to open the guide editor. **Done** files the completed guide in your library and returns to the home screen; starting a new capture does the same automatically. Review images before sharing. **Discard Capture** during recording or **Delete recording** after completion asks for confirmation in the panel, with **Keep capturing** or **Cancel** as the focused default. Export first if you need a copy.
-10. In the guide editor, edit the title, add a description, rewrite any step's instruction (the reset icon restores the recorded text), and add notes. Use the **+** between entries to insert a header, tip or alert. Reorder with the arrow buttons or by dragging the handle. **Blur or crop screenshot** opens an image editor; Apply replaces the stored image and the original pixels are not kept. Edits save automatically, including during a live capture. **Export** offers a Word document (.docx, click markers drawn into the images), PDF (opens a print-ready page; choose **Save as PDF** in Chrome's print dialog), and a web page (.html). Shared exports omit capture coordinates and the author-facing privacy notes.
-11. The panel home and the editor page (opened without a guide) list **Your guides**, newest first, with search across titles, descriptions and step text. Open any guide to edit or export it; deleting from the editor removes only that guide.
-12. Instructions show the control name in bold (Click **Save**). In edited text, wrap words in `**double asterisks**` for bold. Arriving at a new page without a click (an address you typed, a tab you switched to, a single-page app route) adds a "Go to *page*" step; navigation a recorded click caused within five seconds (that tab navigating, or a tab it opened) does not. Reloading a page adds nothing.
-13. The screenshot editor also has **Box**, **Arrow** and **Text** tools and **Zoom to click** (a half-size crop around the click), all baked into the saved image. The guide's **Click marker** can be a circle or a box, in the editor and in every export.
-14. **Guide me** walks a saved guide on the live site. Guides captured on the site in the active tab appear under **On this site** in the panel, each with **Guide me**. A dimmed overlay spotlights each step's control with a card (Step N of M, the instruction, note and tips, Back / Next / Exit). Clicking the real control, finishing a text field, or reaching a "Go to" page moves on; walkthroughs continue across page loads in that tab. When a control cannot be found, the card shows the step's screenshot and, if the step is on another page, an **Open page** link. New captures record a fingerprint of each clicked control (role, accessible name, short text, id and stable attributes, selector, position; never values) so it can be found again; guides captured earlier fall back to screenshots.
-15. **Settings** (gear in the panel): **Guide count** shows the number of your guides for the current site on the toolbar icon; **Stepnote button** shows a floating button on web pages that opens the side panel, with **Hidden on sites** to manage exclusions (the button's × adds the current site); **Capture controls** chooses between the side panel plus an on-page Pause/Complete bar (hidden during each screenshot and never recorded) or the side panel only; **Tidy up steps** merges a field click into the typing that follows it and drops repeated clicks within a second when a capture completes, without changing edited steps. Guide count, the on-screen button and walkthroughs across pages need the site access requested at Start.
-16. **Full page screenshot** (in the panel while capturing or paused, and **Full page** on the on-page bar) scrolls the page and stitches one tall screenshot into a step, "Full page: *page title*". When the document itself scrolls, the whole page is captured; in apps that scroll an inner panel, the largest visible scrolling area is extended in place, with headers and menus shown once and any footer moved to the bottom. Sticky headers sit in their natural place, fixed bars and widgets appear once, Stepnote's own controls are hidden, and the page's scroll position is put back afterwards. Automatic blur runs on every slice and fails closed. Chrome allows about two screenshots a second, so a long page takes a few seconds; keep the tab in front until it finishes. Pages are captured up to 12,000 px tall, and the step label says when a page was cut off. Guide me shows these steps as a reference.
-
-After source changes, run `npm run build`, reload the extension in `chrome://extensions`, and refresh the page you intend to record. Do not load the repository root as the extension.
-
-## Scope and privacy
-
-- Capture follows the top-level document of the tab in focus. Switching tabs, a link that opens a new tab or window, focusing another window, reloading, and navigating to a new page all move capture to that page: the previous page's listener is drained and removed, and the new page gets a fresh listener identity once it has finished loading. Same-document routes keep their existing listener. Pages Stepnote cannot access (Chrome pages, the Web Store, or any page when web access was declined at Start) record nothing and show a notice until you return to a web page. Closing the followed tab does not end capture. Iframes are not captured.
-- Trusted clicks remain separate from trusted ordinary entry in text/search/email/URL/telephone inputs, textareas, and contenteditable regions. The first actual input creates a live `Type "..."` card. Typing, replacement, paste, and deletion update that same card through idle gaps. Empty values show `Clear`. Blur, click-away, field changes, or plain Enter finalize the editing session. Same-field caret clicks do not split it. Shift+Enter continues multiline entry; IME Enter does not finalize partial composition. A new session starts only when actual input follows a completed boundary. Live entries show a pending-image hint; only the final update requests a best-effort screenshot, never every keystroke. Synthetic events and programmatic changes alone create no steps. No raw keystroke sequence is recorded.
-- Pause, Complete, and moving to another page request an acknowledged drain from the followed document before their command finishes. Pending and unacknowledged entry revisions are drained without awaiting worker INPUT replies, and listeners stop. Stable IDs and increasing sequences prevent duplicate, reordered, finalized, or deleted entries from returning. Live notifications and persistence are coalesced while screenshot work is pending. Resume installs a fresh listener identity, so old callbacks cannot splice paused or discarded entries into a new arm. If the original document cannot acknowledge finalization, the panel shows a warning rather than claiming final text was saved.
-- Ordinary entered text is local SOP content and is included in saved state and HTML exports. Entry snapshots contain at most the first 2,000 UTF-16 code units of the resulting field value. Free-text notes, searches, and pasted text may contain private information. Review labels as well as images before sharing.
-- Passwords, hidden and non-text inputs, and recognized credential/one-time-code/payment controls are excluded from entry values. Recognition uses type, autocomplete, name, and ID metadata, including username, password, token/API-key, verification-code, card number/holder/expiry, and card-security-code patterns. Recognized secret controls receive only `Click protected field` labels. Other field clicks use labels, aria-label/aria-labelledby, or placeholders, never current values. This is a metadata-based exclusion, not detection of every sensitive field or arbitrary secrets typed into ordinary text.
-- Other metadata includes the page title, URL origin and path, an action label, viewport dimensions, action position, and timestamps. Query strings, fragments, and URL credentials are omitted. Page text, titles, and URL paths can still contain private information. Type-step markers describe the field-center input position, not another click.
-- **Blur private info automatically** (panel home, on by default, remembered on this device) pixelates private details before a screenshot is saved: recognized credential, one-time-code and payment fields; filled email and phone fields; and visible text that looks like an email address, phone number, card number (Luhn-checked), US Social Security number or IBAN. The scan includes open and closed shadow roots and same-origin frames, including scaled frames; a visible frame that cannot be read (cross-origin) or mapped (rotated, skewed, mirrored, 3D or on a motion path, on the frame or any parent) is blurred whole. The page reports these regions just before and just after the capture, and both sets are blurred. If the page cannot be checked, or the screenshot does not match the page's viewport shape, the screenshot is not saved and the step shows why. Original pixels are never stored. Detection is pattern-based and can miss names, addresses, account details in images, and anything else; review every screenshot. Screenshots otherwise contain visible page content. Images are best-effort post-action captures and may show a later page state. Dynamic layout changes can move the target away from its marker.
-- The extension checks the followed document, active tab, and window before and after capture. It discards images when these checks fail. Clicks already received before a tab switch or navigation stay as steps, with a missing-image reason when necessary; a click that immediately opens a new tab usually has no image for this reason. Chrome does not offer an atomic document-bound screenshot API, so these checks cannot eliminate every possible tab-switch race. Avoid switching tabs during a capture.
-- Screenshot API calls are at least 650 ms apart. Faster click and entry steps remain visible with a missing-image reason. Restricted pages or revoked permissions can also produce a missing-image reason.
-- A lightweight panel heartbeat keeps the worker available while the panel is open. Content-script heartbeats also run during recording. Neither heartbeat fetches screenshots into the panel. If Chrome restarts the worker, an active or paused capture stops for safety. Saved steps remain available. Closing the panel does not complete capture; reopen it to pause or complete.
-- The active guide and the guide library are kept in `chrome.storage.local`, restricted to trusted extension contexts. `unlimitedStorage` lifts Chrome's local size limit for the library; it grants no other access. Nothing is uploaded. There are no accounts, analytics, remote scripts or remote fonts, or runtime dependencies on external services.
-- Chrome's local storage quota limits recording size. If a new click or finalized-entry image exceeds that quota, only that new image is omitted and metadata is retried once with a visible storage-quota reason. Previous images remain intact and capture continues only if that write succeeds. A failed metadata retry or other write failure stops recording and displays an error. Unexpected stops show `Stopped` and their reason rather than looking like explicit completion. Worker change events include unsaved steps, so the panel can still review and export them. Export immediately before the worker sleeps. There is no durable recovery journal. Deleting a recording does not delete HTML files you already exported.
-- Existing starter recordings remain readable. Stable step IDs are added locally without changing their labels, screenshots, or order. Storage still holds one recording, not a searchable document library.
-
-## Permissions
-
-The production manifest requests:
-
-| Permission | Purpose |
+| Command | What it does |
 | --- | --- |
-| `activeTab` | Temporary access to the page the user invokes the extension on, including screenshot capture. |
-| `scripting` | Inject capture listeners into the followed top-level document and verify its identity. |
-| `<all_urls>` (optional) | Requested when you choose **Allow and start** after **Start Capture**, so capture and screenshots can follow new tabs, page loads, and other windows. Chrome's screenshot API accepts only `<all_urls>` or `activeTab`, so narrower `http`/`https` access is not enough. Declining limits capture to the starting page. You can revoke it from the extension's details page. |
-| `storage` | Keep guides locally. |
-| `favicon` | Read the site icon Chrome already has cached for a page, to label guides with it. Served by Chrome locally; nothing is fetched from the website. |
-| `unlimitedStorage` | Let the local guide library grow past Chrome's default storage limit. Local only. |
-| `sidePanel` | Display the persistent native Chrome side panel. |
+| `npm test` | Node unit and DOM tests (`tests/*.test.ts`). |
+| `npm run typecheck` | TypeScript, no emit. |
+| `npm run build` | Dev build in `dist/`, with source maps. |
+| `npm run check` | All three of the above. CI runs this on every push and pull request. |
+| `npm run test:browser` | Builds, then runs the real-extension smoke test in Playwright's Chromium. See [testing.md](docs/testing.md). |
+| `npm run release` | Minified build without source maps, zipped to `release/stepnote-<version>.zip`. |
 
-There are no install-time host permissions or `tabs` permission; `<all_urls>` is only granted if you accept the prompt at Start. Chrome internal pages, the Web Store, and some browser-managed documents cannot be recorded. Invoke the actual toolbar action on the target page. Merely opening `sidepanel.html` as an ordinary tab or changing the selected tab in an already-open panel does not grant `activeTab`. Start resolves the active web tab in the panel's own window and the worker checks its identity again. The legacy popup is no longer the toolbar UI.
+## Release
 
-## Tests
-
-```sh
-npm test
-npm run typecheck
-npm run build
-```
-
-The Node tests cover recorder state, ordered persistence, capture safety, errors, legacy data, deletion, revision ordering, and panel controls. Entry tests also cover stable live-entry revisions across idle gaps, paste/clear, accessible field names, trusted-only input, secret exclusions before value reads, IME, acknowledged Pause/Complete draining without queue deadlock, stale-listener rejection, and escaped exports with input-position markers. Scroll tests cover default following, hover/wheel/keyboard/upward-review suspension, bottom-leave resumption, delayed images respecting review, and no status-only jumps. Additional tests cover final-before-late-message ordering, deleted draft draining, held-screenshot coalescing, quota fallback for clicks and finalized entries, same-document routes, and stale document checks. Browser APIs are explicit in-memory adapters. DOM tests use jsdom and replace only the trusted-event boundary when exercising ordinary entry. They are not real Chrome permission evidence.
-
-For the isolated real-extension smoke test:
+`package.json` holds the version. `npm version` copies it into `public/manifest.json`, commits both, and tags the commit:
 
 ```sh
-npx playwright install chromium
-npm run test:browser
+npm version patch          # or minor, major, or an exact version such as 1.2.0
+git push --follow-tags
 ```
 
-The script launches Playwright's downloaded Chromium headed with a fresh profile under ignored `.test-artifacts`, loads the unmodified production extension, serves a localhost-only fixture, and invokes the actual extension action through Chrome's experimental `Extensions.triggerAction` DevTools command. It attaches to the actual side-panel target, not an extension page opened as a substitute tab. It does not use a personal Chrome profile or broaden extension permissions. It closes the browser and server and deletes the temporary profile in `finally`.
+Pushing a `v*` tag runs the release workflow. It checks that the tag matches `package.json`, runs `npm run check`, builds the zip with `npm run release`, and publishes a GitHub release with the zip attached. That zip is also the file to upload to the Chrome Web Store.
 
-The checks cover native panel opening, live cards, four initial trusted clicks with real JPEG images, preview, deletion, completion, actual panel HTML download, viewer markers, and confirmed discard/deletion with storage read-back. They also exercise real keyboard typing, clipboard paste, textarea/contenteditable entry, clear, text immediately before Pause/Complete, secret and synthetic suppression, and review-aware following after scrolling upward. A focused first-character Type card appears before the old 400 ms idle boundary; an idle gap, replacement paste, and Enter keep one identity and export only its final text. They assert the exact persisted action order and that the newest screenshot card fits above the controls without scrolling or defocusing the recorded page. The isolated fixture grants clipboard access to test a real paste and hides dummy secret glyphs to keep those values out of screenshot evidence. This does not grant new extension permissions or implement redaction.
-
-Panel controls use CDP mouse input. Responsive checks emulate 320 and 450 CSS-pixel panel widths. Evidence includes `.test-artifacts/smoke-result.json`, `sidepanel-home.png`, `sidepanel-live.png`, `sidepanel-text-entry.png`, `sidepanel-text-final.png`, `sidepanel-preview.png`, `sidepanel-review.png`, `sidepanel-320.png`, `sidepanel-450.png`, `editor.png`, `editor-edited.png`, `image-editor.png`, `print-preview.png`, `Smoke guide.docx`, and `smoke-sop.html`. The editor checks run on the real capture: autosaved title, description, instruction and note (shown live in the panel), an inserted tip, button and drag reordering, blur plus crop, a Word export with one image per screenshot, and the print page. The JSON reports measured entry/step/image totals; rapid entries may have visible rate-limit reasons instead of images.
-
-The complete native-panel smoke has passed in Chromium 153.0.8010.12 with production permissions unchanged. It verifies the Stepnote manifest/action name and that the packaged Nunito font loads from the extension itself, with no runtime font CDN. A separate `FIXED=1 node .scratch/capture-continuity/probe.mjs` run verifies same-document second-click routing through the third and fourth clicks, replacement-document stopping, responsive Pause/Resume after real 10 MB screenshot quota, and finalized live-entry image omission. Its current-source hashes and evidence are in `.scratch/capture-continuity/fixed-evidence/`; historical baseline/candidate evidence remains separate. The reproduced stop paths are not proof of the user-site cause. The script waits for worker readiness before invoking its action; invoking it during worker initialization can miss the action listener. Experimental CDP APIs may need adjustments for another Chromium version. This verifies the localhost fixture flow, not compatibility with every website or the minimum supported Chrome version.
+Chrome only accepts versions made of one to four dot-separated numbers, so pre-release versions like `1.0.0-beta.1` are rejected. The build fails if `package.json` and the manifest disagree.
 
 ## Source layout
 
-- `src/recorder.ts`: serialized recording state, persistence, and capture safety checks.
-- `src/chrome-port.ts`: Chrome API adapter.
-- `src/background.ts`, `src/messages.ts`: worker wiring, trusted message routing, and status badge.
-- `src/content.ts`, `src/page-capture.ts`, `src/page-click.ts`, `src/fields.ts`: isolated-world event capture, typing aggregation, safe field metadata, and finalization.
-- `src/sidepanel.ts`, `src/sidepanel-ui.ts`: event-driven live panel, capture controls, and image preview.
-- `src/viewer-ui.ts`, `src/image-editor.ts`: guide editor and screenshot blur/crop. `src/sop.ts`: shared HTML/print rendering. `src/docx.ts`: dependency-free Word writer. `src/print.ts`: PDF print page. Legacy popup modules remain available but are not the primary UI.
-- `public/`: extension manifest, HTML entry points, and CSS.
-- `tests/`: deterministic unit and DOM tests.
-- `scripts/`: build and real-browser smoke scripts.
+- `public/`: manifest, HTML entry points, CSS, icons, and the bundled Nunito font.
+- `scripts/`: `build.mjs` (esbuild bundle), `package.mjs` (release zip), `sync-version.mjs`, `smoke.mjs` (browser smoke test), `icons.mjs`.
+- `tests/`: deterministic unit and DOM tests, one file per module or behavior.
 
-There is no document library/search, voice narration, blur/redaction, desktop-app capture, continuous navigation workflow, cloud sync, video capture, or Chrome Web Store packaging. Step deletion is supported; label/image editing is not.
+In `src/`:
+
+| Area | Modules |
+| --- | --- |
+| Worker | `background.ts` (wiring), `messages.ts` (trusted message routing), `recorder.ts` (recording state, persistence, capture safety checks), `tidy.ts` (Tidy up steps on completion), `chrome-port.ts` (Chrome API adapter), `badge.ts`, `route.ts` |
+| Storage | `library.ts` (guide library), `settings.ts` |
+| Page capture | `content.ts`, `page-capture.ts`, `page-click.ts`, `fields.ts` (event capture, typing aggregation, safe field metadata), `fingerprint.ts` (finding a clicked control again), `fullpage.ts`, `capture-bar.ts` (on-page controls) |
+| Privacy | `sensitive.ts` (finds private details on screen), `redact.ts` (pixelation) |
+| Side panel | `sidepanel.ts`, `sidepanel-ui.ts`, `settings-ui.ts`, `library-ui.ts` |
+| Guide editor | `viewer.ts`, `viewer-ui.ts`, `guide-client.ts`, `image-editor.ts` |
+| Shared UI | `client.ts` (live state from the worker), `dialog.ts` (modal sheets) |
+| Export | `sop.ts` (shared HTML rendering), `docx.ts` (Word writer), `zip.ts`, `print.ts` (PDF print page) |
+| Guide me | `guide.ts`, `guide-overlay.ts`, `guide-session.ts` |
+| On-page button | `launcher.ts`, `launcher-ui.ts` |
+
+`popup.ts` and `popup-ui.ts` are the legacy popup; the side panel replaced it as the toolbar UI.
